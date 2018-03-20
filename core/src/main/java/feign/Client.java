@@ -15,12 +15,19 @@
  */
 package feign;
 
-import static java.lang.String.format;
+import feign.Request.Options;
 
+import javax.net.ssl.HostnameVerifier;
+import javax.net.ssl.HttpsURLConnection;
+import javax.net.ssl.SSLSocketFactory;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.net.*;
+import java.net.HttpURLConnection;
+import java.net.InetSocketAddress;
+import java.net.Proxy;
+import java.net.SocketAddress;
+import java.net.URL;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -28,16 +35,11 @@ import java.util.Map;
 import java.util.zip.DeflaterOutputStream;
 import java.util.zip.GZIPOutputStream;
 
-import javax.net.ssl.HostnameVerifier;
-import javax.net.ssl.HttpsURLConnection;
-import javax.net.ssl.SSLSocketFactory;
-
-import feign.Request.Options;
-
 import static feign.Util.CONTENT_ENCODING;
 import static feign.Util.CONTENT_LENGTH;
 import static feign.Util.ENCODING_DEFLATE;
 import static feign.Util.ENCODING_GZIP;
+import static java.lang.String.format;
 
 /**
  * Submits HTTP {@link Request requests}. Implementations are expected to be thread-safe.
@@ -76,13 +78,18 @@ public interface Client {
     HttpURLConnection createConnection(Request request) throws IOException {
       URL url = new URL(request.url());
       Proxy proxy = null;
-      if ("http".equalsIgnoreCase(url.getProtocol())) {
+      if ("https".equalsIgnoreCase(url.getProtocol())) {
         String host = System.getProperty("http.proxyHost");
         String port = System.getProperty("http.proxyPort");
         if (host != null && host.length() > 0 && port != null && port.length() > 0) {
           SocketAddress addr = new InetSocketAddress(host, Integer.parseInt(port));
           proxy = new Proxy(Proxy.Type.HTTP, addr);
         }
+      }
+
+      if (System.getProperty("http.nonProxyHosts") != null && System.getProperty("http.nonProxyHosts")
+              .equalsIgnoreCase(url.getHost())){
+        proxy = null;
       }
       if (proxy != null) {
         return (HttpURLConnection) url.openConnection(proxy);
